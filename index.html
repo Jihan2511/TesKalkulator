@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Kalkulator Biaya Mahasiswa</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#f5f7fb;
+      --card:#ffffff;
+      --text:#1f2937;
+      --muted:#6b7280;
+      --accent:#6366f1;
+      --danger:#ef4444;
+      --success:#10b981;
+      --radius:12px;
+    }
+    body{
+      margin:0;
+      font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background:var(--bg);
+      color:var(--text);
+    }
+    .container{
+      max-width:1100px;
+      margin:30px auto;
+      padding:20px;
+      display:grid;
+      grid-template-columns:1fr 380px;
+      gap:20px;
+    }
+    h1{
+      margin:0 0 10px;
+      color:var(--accent);
+    }
+    .card{
+      background:var(--card);
+      border-radius:var(--radius);
+      padding:16px;
+      box-shadow:0 10px 25px rgba(0,0,0,.05);
+    }
+    label{
+      font-size:13px;
+      color:var(--muted);
+      margin-top:10px;
+      display:block;
+    }
+    input, select{
+      width:100%;
+      padding:10px;
+      margin-top:4px;
+      border-radius:8px;
+      border:1px solid #e5e7eb;
+    }
+    button{
+      border:none;
+      border-radius:10px;
+      padding:10px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .btn{
+      background:var(--accent);
+      color:white;
+    }
+    .btn-danger{
+      background:var(--danger);
+      color:white;
+    }
+    .btn-secondary{
+      background:#e5e7eb;
+    }
+    .tx-item{
+      display:flex;
+      justify-content:space-between;
+      padding:10px;
+      border-radius:8px;
+      background:#f9fafb;
+      margin-bottom:8px;
+      font-size:14px;
+    }
+    .amount.plus{color:var(--success);font-weight:700}
+    .amount.minus{color:var(--danger);font-weight:700}
+    canvas{max-height:260px}
+    @media(max-width:900px){
+      .container{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- LEFT -->
+  <div>
+    <h1>Kalkulator Biaya</h1>
+
+    <div class="card">
+      <h3>Ringkasan</h3>
+      <p id="summaryText">Total: Rp 0</p>
+      <canvas id="pieChart"></canvas>
+    </div>
+
+    <div class="card" style="margin-top:20px">
+      <h3>Daftar Transaksi</h3>
+      <div id="txList"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div>
+    <div class="card">
+      <h3>Tambah Transaksi</h3>
+
+      <label>Tipe</label>
+      <select id="type">
+        <option value="pengeluaran">Pengeluaran</option>
+        <option value="pemasukan">Pemasukan</option>
+      </select>
+
+      <label>Tanggal</label>
+      <input type="date" id="date">
+
+      <label>Kategori</label>
+      <input id="category" placeholder="Makan / Transport / dll">
+
+      <label>Jumlah</label>
+      <input id="amount" placeholder="contoh: 15000">
+
+      <label>Keterangan</label>
+      <input id="note" placeholder="opsional">
+
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn" id="save">Simpan</button>
+        <button class="btn-secondary" id="reset">Reset</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= STATE ================= */
+const KEY = 'kb_simple_v1';
+let data = JSON.parse(localStorage.getItem(KEY)) || [];
+
+/* ================= DOM ================= */
+const txList = document.getElementById('txList');
+const summaryText = document.getElementById('summaryText');
+
+const typeEl = document.getElementById('type');
+const dateEl = document.getElementById('date');
+const catEl = document.getElementById('category');
+const amtEl = document.getElementById('amount');
+const noteEl = document.getElementById('note');
+
+const saveBtn = document.getElementById('save');
+const resetBtn = document.getElementById('reset');
+
+/* ================= HELPERS ================= */
+function saveData(){
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+function rupiah(n){
+  return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+}
+function today(){
+  return new Date().toISOString().slice(0,10);
+}
+
+/* ================= RENDER ================= */
+function render(){
+  txList.innerHTML = '';
+
+  let pemasukan = 0;
+  let pengeluaran = 0;
+
+  data.forEach((t,i)=>{
+    if(t.type==='pemasukan') pemasukan += t.amount;
+    else pengeluaran += t.amount;
+
+    const div = document.createElement('div');
+    div.className = 'tx-item';
+    div.innerHTML = `
+      <div>
+        <strong>${t.category}</strong><br>
+        <small>${t.date} · ${t.note||'-'}</small>
+      </div>
+      <div class="amount ${t.type==='pemasukan'?'plus':'minus'}">
+        Rp ${rupiah(t.amount)}
+      </div>
+    `;
+    txList.appendChild(div);
+  });
+
+  summaryText.textContent =
+    `Pemasukan Rp ${rupiah(pemasukan)} · Pengeluaran Rp ${rupiah(pengeluaran)}`;
+
+  renderChart(pengeluaran);
+}
+
+/* ================= CHART ================= */
+let pie;
+function renderChart(pengeluaran){
+  if(pie) pie.destroy();
+  pie = new Chart(document.getElementById('pieChart'),{
+    type:'doughnut',
+    data:{
+      labels:['Pengeluaran'],
+      datasets:[{
+        data:[pengeluaran],
+        backgroundColor:['#ef4444']
+      }]
+    }
+  });
+}
+
+/* ================= EVENTS ================= */
+saveBtn.onclick = ()=>{
+  const amount = parseInt(amtEl.value);
+  if(!amount || amount<=0){
+    alert('Jumlah tidak valid');
+    return;
+  }
+  data.push({
+    type:typeEl.value,
+    date:dateEl.value || today(),
+    category:catEl.value || 'Lain-lain',
+    amount,
+    note:noteEl.value
+  });
+  saveData();
+  render();
+  amtEl.value = '';
+  noteEl.value = '';
+};
+
+resetBtn.onclick = ()=>{
+  if(confirm('Hapus semua data?')){
+    data=[];
+    saveData();
+    render();
+  }
+};
+
+/* ================= INIT ================= */
+dateEl.value = today();
+render();
+</script>
+
+</body>
+</html>
