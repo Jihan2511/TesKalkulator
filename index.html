@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalkulator Biaya Hidup</title>
+
+<style>
+:root{
+  --primary:#8e3b3b;
+  --secondary:#b04a4a;
+  --soft:#f3d2cc;
+  --bg:#f6f6f6;
+}
+
+body{
+  margin:0;
+  font-family:Segoe UI, sans-serif;
+  background:var(--bg);
+}
+
+/* ===== PROFILE ===== */
+#profile{
+  height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.profile-box{
+  background:white;
+  width:380px;
+  padding:25px;
+  border-radius:12px;
+}
+
+.profile-box h2{
+  text-align:center;
+}
+
+.profile-box input{
+  width:100%;
+  padding:10px;
+  margin:8px 0;
+}
+
+.profile-box button{
+  width:100%;
+  padding:12px;
+  background:var(--primary);
+  color:white;
+  border:none;
+  cursor:pointer;
+}
+
+/* ===== DASHBOARD ===== */
+#dashboard{
+  display:none;
+  padding:20px;
+}
+
+header{
+  background:var(--primary);
+  color:white;
+  padding:20px;
+  border-radius:10px;
+}
+
+.main{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:20px;
+  margin-top:20px;
+}
+
+.card{
+  background:white;
+  padding:20px;
+  border-radius:12px;
+}
+
+.summary p{
+  margin:6px 0;
+  font-weight:600;
+}
+
+.chart{
+  width:200px;
+  height:200px;
+  margin:15px auto;
+  border-radius:50%;
+  background:conic-gradient(
+    #c46a6a 0% 30%,
+    #e09a8f 30% 55%,
+    #f0b9ae 55% 100%
+  );
+}
+
+button.primary{
+  background:var(--secondary);
+  color:white;
+  padding:12px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
+}
+
+/* ===== POPUP ===== */
+#popup{
+  display:none;
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.4);
+  justify-content:center;
+  align-items:center;
+}
+
+.popup-box{
+  background:white;
+  width:400px;
+  padding:20px;
+  border-radius:12px;
+}
+
+.popup-box h3{
+  text-align:center;
+}
+
+.popup-box input, select{
+  width:100%;
+  padding:10px;
+  margin:6px 0;
+}
+
+.actions{
+  display:flex;
+  gap:10px;
+}
+
+.actions button{
+  flex:1;
+  padding:10px;
+}
+
+/* ===== TRANSAKSI ===== */
+.list li{
+  border-bottom:1px solid #ddd;
+  padding:6px 0;
+}
+</style>
+</head>
+
+<body>
+
+<!-- ===== PROFILE ===== -->
+<div id="profile">
+  <div class="profile-box">
+    <h2>Profil Pengguna</h2>
+    <input id="nama" placeholder="Nama">
+    <input id="pendapatan" type="number" placeholder="Pendapatan Bulanan">
+    <button onclick="masuk()">Masuk</button>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard">
+  <header>
+    <h2>Kalkulator Biaya Hidup</h2>
+    <p id="user"></p>
+  </header>
+
+  <div class="main">
+    <div class="card">
+      <h3>Ringkasan Keuangan</h3>
+      <div class="summary">
+        <p>Total: Rp <span id="total">0</span></p>
+        <p>Pengeluaran: Rp <span id="keluar">0</span></p>
+        <p>Saldo: Rp <span id="saldo">0</span></p>
+      </div>
+      <div class="chart"></div>
+      <button class="primary" onclick="openPopup()">+ Tambah Transaksi</button>
+    </div>
+
+    <div class="card">
+      <h3>Daftar Transaksi</h3>
+      <ul class="list" id="list"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== POPUP ===== -->
+<div id="popup">
+  <div class="popup-box">
+    <h3>Tambah Transaksi</h3>
+    <select id="tipe">
+      <option value="keluar">Pengeluaran</option>
+      <option value="masuk">Pemasukan</option>
+    </select>
+    <input type="date" id="tanggal">
+    <select id="kategori">
+      <option>Makan</option>
+      <option>Transportasi</option>
+      <option>Sewa</option>
+      <option>Lain-lain</option>
+    </select>
+    <input type="number" id="jumlah" placeholder="Jumlah">
+    <input id="ket" placeholder="Keterangan">
+    <div class="actions">
+      <button onclick="simpan()">Simpan</button>
+      <button onclick="closePopup()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let pendapatan = 0;
+let keluar = 0;
+
+function masuk(){
+  const n = nama.value;
+  pendapatan = Number(document.getElementById('pendapatan').value);
+  if(!n || !pendapatan) return alert("Lengkapi data");
+
+  profile.style.display="none";
+  dashboard.style.display="block";
+  user.innerText = `Halo, ${n} | Pendapatan: Rp ${pendapatan}`;
+  saldo.innerText = pendapatan;
+}
+
+function openPopup(){ popup.style.display="flex"; }
+function closePopup(){ popup.style.display="none"; }
+
+function simpan(){
+  const t = tipe.value;
+  const j = Number(jumlah.value);
+  if(!j) return alert("Jumlah kosong");
+
+  const li = document.createElement("li");
+  li.textContent = `${tanggal.value} - ${kategori.value} - Rp ${j}`;
+  list.appendChild(li);
+
+  if(t==="keluar"){
+    keluar += j;
+    keluarSpan = document.getElementById('keluar');
+    keluarSpan.innerText = keluar;
+  } else {
+    pendapatan += j;
+  }
+
+  total.innerText = pendapatan;
+  saldo.innerText = pendapatan - keluar;
+  closePopup();
+}
+</script>
+
+</body>
+</html>
